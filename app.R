@@ -22,8 +22,15 @@ header <-  dashboardHeader(title = "STHK Frailty Dashboard")
 
 ui <- dashboardPage(
     dashboardHeader(title = "Frailty Dashboard"),
-    dashboardSidebar(),
+    dashboardSidebar(
+      sidebarMenu(id = "mainsidebar",
+        menuItem(text = "Admission", tabName = "admission", icon = NULL),
+        menuItem(text = "Length of stay", tabName = "lengthofstay", icon = NULL)
+      )
+    ),
     dashboardBody(
+      tabItems(
+        tabItem(tabName = "admission",
         # Boxes need to be put in a row (or column)
         fluidRow(
           titlePanel(glue::glue("Frailty service activity (from 
@@ -41,16 +48,33 @@ ui <- dashboardPage(
                                        "Proportion of referrals")))
         ),
         fluidRow(
-          box(title = "Admission mode",
-              width = 10,
+          box(title = "Admission mode", width = 10,
               plotOutput("admission_mode", height = 250))
         )
+        ),
+        tabItem(tabName = "lengthofstay",
+            fluidRow(
+              titlePanel(glue::glue("Length of stay (from 
+               {format(min(frailty_data[['Date/Time of Referral']]), format = '%d %b %Y')} to 
+               {format(max(frailty_data[['Date/Time of Referral']]), format = '%d %b %Y')})"))
+            ),
+            fluidRow(
+             box(title = "Length of stay", width = 10,
+                 plotOutput("lengthofstay_chart", height = 550)),
+             box(width = 2,
+                 radioButtons(inputId = "lengthofstaybuttons",
+                              label = "Y axis shows:",
+                              choices = c("Number of referrals",
+                                          "Proportion of referrals")))
+           )
+        )
+      )
     )
 )
 
 server <- function(input, output) {
     frailty_data <-
-      read_frailty_data("../FrailtyTest/FrailtyData.csv")
+      read_frailty_data("../FrailtyTest/FinalTableOutput.csv")
     
 #    final_output_data <- 
 #      readr::read_csv("../FrailtyTest/FinalTableOutput.csv")
@@ -124,9 +148,31 @@ server <- function(input, output) {
                       ylab = input$residenceRadios)
     })
     
-#    my_fun=function(vec){ as.numeric(vec[3]) / sum(data$Value[data$Year==vec[2]]) *100 }
-#    data$prop=apply(data , 1 , my_fun)
-    
+    output$lengthofstay_chart <- renderPlot({
+      los_data <- dplyr::filter(frailty_data, !is.na(.data[["LOS"]]))
+      los_data <- dplyr::mutate(los_data, event = TRUE)
+      
+      fit <- survfit(Surv(LOS, event) ~ 1, data = los_data)
+      survminer::ggsurvplot(
+        fit, 
+        data = los_data,
+        size = 1,                 # change line size
+#        palette = 
+#          c("#E7B800", "#2E9FDF"),# custom color palettes
+        conf.int = TRUE,          # Add confidence interval
+        xlim = c(0, 21),          # Limit at 21 days ('super stranded' patients)
+        xlab = "Time from admission in days",   # customize X axis label.
+        break.time.by = 1,     # break X axis in time intervals by 500.
+        ylab = "Proportion of patients remaining in hospital",
+        risk.table = TRUE,        # Add risk table
+        risk.table.title = "Number of patients",
+        risk.table.col = "strata",# Risk table color by groups
+        legend.labs = 
+          c("All"),    # Change legend labels
+        risk.table.height = 0.25, # Useful to change when you have multiple groups
+        ggtheme = theme_bw()      # Change ggplot2 theme
+      )
+    })
 }
 
 shinyApp(ui, server)

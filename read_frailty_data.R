@@ -42,7 +42,8 @@ read_frailty_data <- function(filename) {
       "CFS" = readr::col_integer(),
       "DNA CPR" = readr::col_logical(),
       "ACP" = readr::col_logical(),
-      "ACP Info" = readr::col_logical()
+      "ACP Info" = readr::col_logical(),
+      "Arrival to Discharge (Days)" = readr::col_number()
     ))
   
   frailty_data <- dplyr::mutate(frailty_data,
@@ -51,9 +52,11 @@ read_frailty_data <- function(filename) {
                       .data[["Date/Time of Admission to 1A"]],
                       .data[["Date/Time of Referral"]]),
   )
+  frailty_data <- dplyr::rename(frailty_data, "LOS" = "Arrival to Discharge (Days)")
   
   frailty_data[["Mode of admission"]][frailty_data[["Mode of admission"]] == "Case Finding"] <- "Case finding"
   frailty_data[["Mode of admission"]][frailty_data[["Mode of admission"]] == "Direct Admission"] <- "Direct admission"
+  frailty_data[["Mode of admission"]][is.na(frailty_data[["Mode of admission"]])] <- "Unknown"
   forcats::fct_drop(frailty_data[["Mode of admission"]])
   
   frailty_data <- dplyr::filter(frailty_data,

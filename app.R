@@ -37,8 +37,10 @@ ui <- dashboardPage(
         # Boxes need to be put in a row (or column)
         fluidRow(
           titlePanel(glue::glue("Frailty service activity (from 
-            {format(min(frailty_data[['Date/Time of Referral']]), format = '%d %b %Y')} to 
-            {format(max(frailty_data[['Date/Time of Referral']]), format = '%d %b %Y')})"))
+            {format(min(frailty_data[['Date/Time of Referral']]),
+                    format = '%d %b %Y')} to 
+            {format(max(frailty_data[['Date/Time of Referral']]),
+                    format = '%d %b %Y')})"))
         ),
         fluidRow(
             box(title = "Type of residence",
@@ -119,8 +121,8 @@ server <- function(input, output) {
                                       by = "ReferralPeriod")
     
     admission_mode <- dplyr::mutate(admission_mode,
-                                    "proportionPatients" = .data[["Patients"]] /
-                                      .data[["Total"]] * 100)
+      "proportionPatients" = .data[["Patients"]] /
+        .data[["Total"]] * 100)
     
     output$admission_mode <- renderPlot({
       if (input$residenceRadios == "Number of referrals") {

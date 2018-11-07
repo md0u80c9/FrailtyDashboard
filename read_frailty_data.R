@@ -53,6 +53,7 @@ read_frailty_data <- function(filename) {
                       .data[["Date/Time of Referral"]]),
     "event" = TRUE, # This is used by the Kaplan-Meier curves and should always be TRUE
     "place_of_residence" = .data[["Place of Residence"]],
+    "discharge_destination" = .data[["Discharge destination"]],
     "LOS" = .data[["Arrival to Discharge (Days)"]]
   )
   

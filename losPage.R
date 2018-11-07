@@ -15,18 +15,12 @@ losPageInput <- function(id) {
           )
       ),
       column(width = 3,
-       box(width = NULL,
-            radioButtons(inputId = ns("lengthofstay_charttype"),
-                         label = "Separate length of stay",
-                         choices = c("Show all",
-                                     "By Year",
-                                     "By residence at admission"))
-        ),
         box(width = NULL,
-            uiOutput(ns("filter_controls"))
+          uiOutput(ns("charttype"))
         ),
+        uiOutput(ns("filter_controls")),
         box(width = NULL,
-            uiOutput(ns("extra_controls"))
+          uiOutput(ns("extra_controls"))
         )
       )
     )
@@ -36,17 +30,38 @@ losPageInput <- function(id) {
 # Module server function
 losPage <- function(input, output, session, source_data) {
   
+  # TODO filter the LOS data for blanks and select only useful columns here,
+  # rather than within the reactive - this will speed up redraws.
+  
+  filtered_source_data <- dplyr::filter(source_data,
+                                        !is.na(.data[["LOS"]]))
+  filtered_source_data <- dplyr::select(filtered_source_data,
+                                        "LOS",
+                                        "event",
+                                        "CCG",
+                                        "place_of_residence",
+                                        "Mode of admission",
+                                        "Date/Time of Referral",
+                                        "Source of admission",
+                                        "discharge_destination")
+
   los_data <- reactive({
-    los_data <- dplyr::filter(source_data,
-                                 !is.na(.data[["LOS"]]))
+    if (input$charttype == names(charttype_fields)[1]) {
+      los_data <- dplyr::mutate(filtered_source_data,
+                                "chart_field" = TRUE)
+    } else {
+      los_data <- dplyr::mutate(filtered_source_data,
+        "chart_field" =
+          !!sym(charttype_fields[[input$charttype]]))
+    }
     if (!is.null(input$lengthofstay_typefilter)) {
       # Now filter the data so only those with a valid LOS and whose data is
       # selected are shown
-      
+
       los_data <- dplyr::filter(los_data,
-        .data[["place_of_residence"]] %in% input$lengthofstay_typefilter)
+        .data[["chart_field"]] %in% input$lengthofstay_typefilter)
     }
-    los_data$place_of_residence <- forcats::fct_drop(los_data$place_of_residence)
+    los_data$chart_field <- forcats::fct_drop(los_data$chart_field)
     return(los_data)
   })
 
@@ -60,11 +75,32 @@ losPage <- function(input, output, session, source_data) {
     )
   })
 
+  output$charttype <- renderUI({
+    radioButtons(inputId = session$ns("charttype"),
+                 label = "Separate length of stay",
+                 choices = names(charttype_fields))
+  })
+  
+  charttype_fields <- c(
+    "Show all" = "",
+    "By Year" = "referral_year",
+    "By residence at admission" = "place_of_residence",
+    "By discharge destination" = "discharge_destination"
+  )
+  
   output$filter_controls <- renderUI({
-    checkboxGroupInput(inputId = session$ns("lengthofstay_typefilter"),
-                       label = "Show residence type",
-                       choices = levels(source_data$place_of_residence),
-                       selected = levels(source_data$place_of_residence))
+    if (length(levels(
+      source_data[[charttype_fields[input$charttype]]])) > 0) {
+      box(width = NULL,
+        checkboxGroupInput(
+        inputId = session$ns("lengthofstay_typefilter"),
+        label = "Show residence type",
+        choices = levels(
+          source_data[[charttype_fields[input$charttype]]]),
+        selected = levels(
+          source_data[[charttype_fields[input$charttype]]]))
+      )
+    }
   })
   
   output$extra_controls <- renderUI({
@@ -77,7 +113,9 @@ losPage <- function(input, output, session, source_data) {
   })
   
   output$chart <- renderPlot({
-    fit <- survfit(Surv(LOS, event) ~ place_of_residence, data = los_data())
+    fit <- survfit(Surv(LOS, event) ~ chart_field,
+                   data = los_data())
+
     survminer::ggsurvplot(
       fit, 
       data = los_data(),
@@ -90,7 +128,7 @@ losPage <- function(input, output, session, source_data) {
       risk.table = TRUE,        # Add risk table
       risk.table.title = "Number of patients",
       risk.table.col = "strata",# Risk table color by groups
-      legend.labs = levels(los_data()[["place_of_residence"]]),
+      legend.labs = levels(los_data()[["chart_field"]]),
       #          c("All"),    # Change legend labels
       risk.table.height = 0.25, # Useful to change when you have multiple groups
       ggtheme = theme_bw()      # Change ggplot2 theme

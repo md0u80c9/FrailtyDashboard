@@ -6,28 +6,13 @@ read_frailty_data <- function(filename) {
       .default = readr::col_character(),
       ID = readr::col_double(),
       "Hospital number" = readr::col_character(),
-      "Place of Residence" = readr::col_factor(
-        levels = c("Own home",
-                   "Nursing home",
-                   "Sheltered accomodation",
-                   "Residential",
-                   "Respite",
-                   "Supported Living",
-                   "Unknown"),
+      "Place of Residence" = readr::col_factor(levels = NULL,
         include_na = TRUE),
-      "Mode of admission" = readr::col_factor(
-        levels = c("Case finding",
-                   "Case Finding",
-                   "Direct Admission",
-                   "Direct admission",
-                   "E-Handover",
-                   "Referral",
-                   "Transfer",
-                   "Unknown"),
-        include_na = TRUE),
-        
-      #            "Source of admission" = readr::col_factor(),
-      #            "Mode of admission" = readr::col_factor(),
+      "CCG" = readr::col_factor(levels = NULL, include_na = TRUE),
+      "Mode of admission" = readr::col_factor(levels = NULL,
+                                              include_na = TRUE),
+      "Source of admission" = readr::col_factor(levels = NULL,
+                                              include_na = TRUE),
       "Date/Time of Referral" = readr::col_datetime(
         format = "%d/%m/%Y %H:%M:%S"),
       "Date/Time of Admission to 1A" = readr::col_datetime(
@@ -43,7 +28,9 @@ read_frailty_data <- function(filename) {
 #      "DNA CPR" = readr::col_logical(),
 #      "ACP" = readr::col_logical(),
 #      "ACP Info" = readr::col_logical(),
-      "Arrival to Discharge (Days)" = readr::col_number()
+      "Arrival to Discharge (Days)" = readr::col_number(),
+      "Discharge destination" = readr::col_factor(levels = NULL,
+        include_na = TRUE)
     ))
   
   frailty_data <- dplyr::mutate(frailty_data,
@@ -51,16 +38,19 @@ read_frailty_data <- function(filename) {
        dplyr::if_else(is.na(.data[["Date/Time of Referral"]]),
                       .data[["Date/Time of Admission to 1A"]],
                       .data[["Date/Time of Referral"]]),
-    "event" = TRUE, # This is used by the Kaplan-Meier curves and should always be TRUE
+    "event" = TRUE) # This is used by the Kaplan-Meier curves and should always be TRUE
+  
+  frailty_data <- dplyr::rename(frailty_data,
+    "mode_of_admission" = .data[["Mode of admission"]],
     "place_of_residence" = .data[["Place of Residence"]],
     "discharge_destination" = .data[["Discharge destination"]],
+    "source_of_admission" = .data[["Source of admission"]],
     "LOS" = .data[["Arrival to Discharge (Days)"]]
   )
   
-  frailty_data[["Mode of admission"]][frailty_data[["Mode of admission"]] == "Case Finding"] <- "Case finding"
-  frailty_data[["Mode of admission"]][frailty_data[["Mode of admission"]] == "Direct Admission"] <- "Direct admission"
-  frailty_data[["Mode of admission"]][is.na(frailty_data[["Mode of admission"]])] <- "Unknown"
-  forcats::fct_drop(frailty_data[["Mode of admission"]])
+  frailty_data[["mode_of_admission"]][frailty_data[["mode_of_admission"]] == "Case Finding"] <- "Case finding"
+  frailty_data[["mode_of_admission"]][frailty_data[["mode_of_admission"]] == "Direct Admission"] <- "Direct admission"
+  forcats::fct_drop(frailty_data[["mode_of_admission"]])
   
   frailty_data <- dplyr::filter(frailty_data,
                                 !is.na(.data[["Date/Time of Referral"]]))

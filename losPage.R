@@ -18,6 +18,7 @@ losPageInput <- function(id) {
         box(width = NULL,
           uiOutput(ns("charttype"))
         ),
+        tags$div(id = 'select_factors_to_plot'),
         uiOutput(ns("filter_controls")),
         box(width = NULL,
           uiOutput(ns("extra_controls"))
@@ -40,26 +41,30 @@ losPage <- function(input, output, session, source_data) {
                                         "event",
                                         "CCG",
                                         "place_of_residence",
-                                        "Mode of admission",
+                                        "mode_of_admission",
                                         "Date/Time of Referral",
-                                        "Source of admission",
+                                        "source_of_admission",
                                         "discharge_destination")
-
+  filtered_source_data <- dplyr::mutate(filtered_source_data,
+    "year" = as.factor(format(.data[['Date/Time of Referral']],
+                    format = '%Y')))
+                                        
   los_data <- reactive({
-    if (input$charttype == names(charttype_fields)[1]) {
-      los_data <- dplyr::mutate(filtered_source_data,
-                                "chart_field" = TRUE)
-    } else {
+#    if (input$charttype == names(charttype_fields)[1]) {
+#      los_data <- dplyr::mutate(filtered_source_data,
+#                                "chart_field" = TRUE)
+#    } else 
+    {
       los_data <- dplyr::mutate(filtered_source_data,
         "chart_field" =
           !!sym(charttype_fields[[input$charttype]]))
-    }
-    if (!is.null(input$lengthofstay_typefilter)) {
-      # Now filter the data so only those with a valid LOS and whose data is
-      # selected are shown
+      if (!is.null(input$lengthofstay_typefilter)) {
+        # Now filter the data so only those with a valid LOS and whose data is
+        # selected are shown
 
-      los_data <- dplyr::filter(los_data,
-        .data[["chart_field"]] %in% input$lengthofstay_typefilter)
+        los_data <- dplyr::filter(los_data,
+          .data[["chart_field"]] %in% input$lengthofstay_typefilter)
+      }
     }
     los_data$chart_field <- forcats::fct_drop(los_data$chart_field)
     return(los_data)
@@ -75,41 +80,53 @@ losPage <- function(input, output, session, source_data) {
     )
   })
 
+  charttype_fields <- c(
+#    "Show all" = "",
+#    "By Year" = "referral_year",
+    "By residence at admission" = "place_of_residence",
+    "By discharge destination" = "discharge_destination",
+    "By mode of admission" = "mode_of_admission",
+    "By source of admission" = "source_of_admission",
+    "By CCG" = "CCG",
+    "By year" = "year"
+  )
+  
   output$charttype <- renderUI({
     radioButtons(inputId = session$ns("charttype"),
                  label = "Separate length of stay",
                  choices = names(charttype_fields))
   })
-  
-  charttype_fields <- c(
-    "Show all" = "",
-    "By Year" = "referral_year",
-    "By residence at admission" = "place_of_residence",
-    "By discharge destination" = "discharge_destination"
-  )
-  
+
   output$filter_controls <- renderUI({
-    if (length(levels(
-      source_data[[charttype_fields[input$charttype]]])) > 0) {
-      box(width = NULL,
-        checkboxGroupInput(
-        inputId = session$ns("lengthofstay_typefilter"),
-        label = "Show residence type",
-        choices = levels(
-          source_data[[charttype_fields[input$charttype]]]),
-        selected = levels(
-          source_data[[charttype_fields[input$charttype]]]))
-      )
-    }
+    if (!is.null(input$charttype)) {
+      if (length(levels(filtered_source_data[[
+        charttype_fields[input$charttype]]])) > 0) {
+        box(width = NULL,
+          checkboxGroupInput(
+          inputId = session$ns("lengthofstay_typefilter"),
+          label = "Show",
+          choices = levels(
+            filtered_source_data[[charttype_fields[input$charttype]]]),
+          selected = levels(
+            filtered_source_data[[charttype_fields[input$charttype]]]))
+          )
+        }
+      }
   })
-  
+
   output$extra_controls <- renderUI({
     extra_options <- c("Show confidence interval bands",
                        "Exclude deaths during the admission")
     checkboxGroupInput(inputId = session$ns("lengthofstay_extra"),
-                       label = "Additional display options",
+                       label = "Additional charting options",
                        choices = extra_options,
                        selected = "")
+  })
+
+  output$chart_box <- renderUI({
+    box(title = "Length of stay", width = NULL,
+        plotOutput(ns("chart"), height = 550)
+    )
   })
   
   output$chart <- renderPlot({

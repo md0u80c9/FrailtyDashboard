@@ -72,7 +72,7 @@ server <- function(input, output) {
     
     frailty_data <- dplyr::group_by(frailty_data,
                                     .data[["ReferralPeriod"]],
-                                    .data[["Place of Residence"]])
+                                    .data[["place_of_residence"]])
 
     residence_type <- dplyr::summarise(frailty_data,
                                        "Patients" = n())
@@ -100,7 +100,7 @@ server <- function(input, output) {
       ggplot2::ggplot(residence_type,
              ggplot2::aes(x = .data[["ReferralPeriod"]],
                  y = .data[[y_axis]],
-                 fill = .data[["Place of Residence"]])) + 
+                 fill = .data[["place_of_residence"]])) + 
         ggplot2::geom_area(alpha = 0.4 , size = 0.2, colour = "black") +
         ggplot2::labs(xlab = "Month of admission",
                     ylab = input$residenceRadios)
@@ -110,7 +110,7 @@ server <- function(input, output) {
     
     frailty_data <- dplyr::group_by(frailty_data,
                                     .data[["ReferralPeriod"]],
-                                    .data[["Mode of admission"]])
+                                    .data[["mode_of_admission"]])
     
     admission_mode <- dplyr::summarise(frailty_data,
                                        "Patients" = n())
@@ -133,7 +133,7 @@ server <- function(input, output) {
       ggplot2::ggplot(admission_mode,
                       ggplot2::aes(x = .data[["ReferralPeriod"]],
                                    y = .data[[y_axis]],
-                                   fill = .data[["Mode of admission"]])) + 
+                                   fill = .data[["mode_of_admission"]])) + 
         ggplot2::geom_area(alpha = 0.4 , size = 0.2, colour = "black") +
         ggplot2::labs(xlab = "Month of admission",
                       ylab = input$residenceRadios)

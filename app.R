@@ -15,9 +15,11 @@ library(tibbletime)
 library(shinydashboard)
 library(survival)
 library(survminer)
+library(ggpubr)
 
 source("read_frailty_data.R")
 source("losPage.R")
+source("admission_activity.R")
 
 header <-  dashboardHeader(title = "STHK Frailty Dashboard")
 
@@ -27,20 +29,20 @@ ui <- dashboardPage(
     dashboardHeader(title = "Frailty Dashboard"),
     dashboardSidebar(
       sidebarMenu(id = "mainsidebar",
-        menuItem(text = "Admission", tabName = "admission", icon = NULL),
+                  menuItem(text = "Referral acuity", tabName = "admission_activity", icon = NULL),
+                  menuItem(text = "Admission", tabName = "admission", icon = NULL),
         menuItem(text = "Length of stay", tabName = "los_page", icon = NULL)
       )
     ),
     dashboardBody(
       tabItems(
+        tabItem(tabName = "admission_activity",
+                admissionActivityInput("admission_activity")
+        ),
         tabItem(tabName = "admission",
         # Boxes need to be put in a row (or column)
         fluidRow(
-          titlePanel(glue::glue("Frailty service activity (from 
-            {format(min(frailty_data[['Date/Time of Referral']]),
-                    format = '%d %b %Y')} to 
-            {format(max(frailty_data[['Date/Time of Referral']]),
-                    format = '%d %b %Y')})"))
+          titlePanel("Frailty service activity")
         ),
         fluidRow(
             box(title = "Type of residence",
@@ -139,7 +141,10 @@ server <- function(input, output) {
                       ylab = input$residenceRadios)
     })
     
-    
+    admission_activity_page_module <- callModule(
+      admissionActivity,
+      "admission_activity",
+      frailty_data)
     los_page_module <- callModule(losPage, "los_page", frailty_data)
 }
 

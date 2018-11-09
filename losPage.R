@@ -31,9 +31,6 @@ losPageInput <- function(id) {
 # Module server function
 losPage <- function(input, output, session, source_data) {
   
-  # TODO filter the LOS data for blanks and select only useful columns here,
-  # rather than within the reactive - this will speed up redraws.
-  
   filtered_source_data <- dplyr::filter(source_data,
                                         !is.na(.data[["LOS"]]))
   filtered_source_data <- dplyr::select(filtered_source_data,

@@ -16,10 +16,12 @@ library(shinydashboard)
 library(survival)
 library(survminer)
 library(ggpubr)
+library(chron)
 
 source("read_frailty_data.R")
 source("losPage.R")
 source("admission_activity.R")
+source("calendarheatmap.R")
 
 header <-  dashboardHeader(title = "STHK Frailty Dashboard")
 
@@ -31,7 +33,11 @@ ui <- dashboardPage(
       sidebarMenu(id = "mainsidebar",
                   menuItem(text = "Referral acuity", tabName = "admission_activity", icon = NULL),
                   menuItem(text = "Admission", tabName = "admission", icon = NULL),
-        menuItem(text = "Length of stay", tabName = "los_page", icon = NULL)
+        menuItem(text = "Length of stay", tabName = "los_page", icon = NULL),
+        radioButtons(inputId = "menu_charttype",
+        label = "Separate length of stay by:",
+        choices = c("Residence at admission",
+                    "Discharge destination"))
       )
     ),
     dashboardBody(

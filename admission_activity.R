@@ -14,6 +14,11 @@ admissionActivityInput <- function(id) {
         box(title = "Day of week of arrival and referrals",
             width = NULL,
             plotOutput(ns("weekday_referrals_plot"), height = 300)
+        ),
+        box(title = "Daily referral activity heatmap",
+            width = NULL,
+            plotOutput(ns("daily_arrivals_plot"), height = 400),
+            plotOutput(ns("daily_referrals_plot"), height = 400)
         )
       )
     )
@@ -115,7 +120,29 @@ admissionActivity <- function(input, output, session, source_data) {
   })
 
   
+  daily_arrivals <- reactive({
+    daily_data <- dplyr::transmute(filtered_source_data,
+                                   "arrival_day" = as.Date(.data[["ed_arrival_datetime"]]))
+    daily_data <- dplyr::group_by(daily_data, arrival_day)
+    daily_data <- dplyr::summarise(daily_data,
+                                   "n" = n())
+    daily_data <- dplyr::filter(daily_data,
+                                arrival_day >= as.Date("01/01/2016", "%d/%m/%Y"))
+    return(daily_data)
+  })
   
+  
+  daily_referrals <- reactive({
+    daily_data <- dplyr::transmute(filtered_source_data,
+      "referral_day" = as.Date(.data[['Date/Time of Referral']]))
+    daily_data <- dplyr::group_by(daily_data, referral_day)
+    daily_data <- dplyr::summarise(daily_data,
+                     "n" = n())
+    daily_data <- dplyr::filter(daily_data,
+                    referral_day >= as.Date("01/01/2016", "%d/%m/%Y"))
+    return(daily_data)
+  })
+
   output$arrival_to_referral_plot <- renderPlot({
     frequency <- ggplot2::ggplot(data = admission_data(),
                     aes(x = .data[["hour"]],
@@ -158,10 +185,24 @@ admissionActivity <- function(input, output, session, source_data) {
 )) +
       geom_bar(stat = "identity", position = "identity") +
       xlab("Day of the week") +
-      ylab("Number of referrals") +
-      ggtitle("Presenting time of day for referrals") +
+      ylab("Number of patients") +
+      ggtitle("Comparison of day of week arrival versus day of week referral of frailty cohort") +
       theme_bw() +
       theme(legend.position = "top")
     
+  })
+  
+  output$daily_referrals_plot <- renderPlot({
+    referrals <- daily_referrals()
+    calendarHeat(referrals$referral_day,
+                 referrals$n, color = "bluehue",
+                 varname = "number of frailty referrals per day")
+  })
+  
+  output$daily_arrivals_plot <- renderPlot({
+    referrals <- daily_arrivals()
+    calendarHeat(referrals$arrival_day,
+                 referrals$n, color = "redhue",
+                 varname = "frailty patients arriving in ED per day")
   })
 }

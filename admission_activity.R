@@ -18,7 +18,8 @@ admissionActivityInput <- function(id) {
         box(title = "Daily referral activity heatmap",
             width = NULL,
             plotOutput(ns("daily_arrivals_plot"), height = 400),
-            plotOutput(ns("daily_referrals_plot"), height = 400)
+            plotOutput(ns("daily_referrals_plot"), height = 400),
+            plotOutput(ns("daily_admissions_plot"), height = 400)
         )
       )
     )
@@ -33,7 +34,8 @@ admissionActivity <- function(input, output, session, source_data) {
     "mode_of_admission",
     "Date/Time of Referral",
     "ed_arrival_datetime",
-    "arrival_to_referral_mins")
+    "arrival_to_referral_mins",
+    "Date/Time of Admission to 1A")
   
   filtered_source_data <- dplyr::filter(filtered_source_data,
     !is.na(.data[["Date/Time of Referral"]]))
@@ -142,7 +144,18 @@ admissionActivity <- function(input, output, session, source_data) {
                     referral_day >= as.Date("01/01/2016", "%d/%m/%Y"))
     return(daily_data)
   })
-
+  
+  daily_admissions <- reactive({
+    daily_data <- dplyr::transmute(filtered_source_data,
+      "admission_day" = as.Date(.data[["Date/Time of Admission to 1A"]]))
+    daily_data <- dplyr::group_by(daily_data, admission_day)
+    daily_data <- dplyr::summarise(daily_data,
+                                   "n" = n())
+    daily_data <- dplyr::filter(daily_data,
+                                admission_day >= as.Date("01/01/2016", "%d/%m/%Y"))
+    return(daily_data)
+  })
+  
   output$arrival_to_referral_plot <- renderPlot({
     frequency <- ggplot2::ggplot(data = admission_data(),
                     aes(x = .data[["hour"]],
@@ -200,9 +213,16 @@ admissionActivity <- function(input, output, session, source_data) {
   })
   
   output$daily_arrivals_plot <- renderPlot({
-    referrals <- daily_arrivals()
-    calendarHeat(referrals$arrival_day,
-                 referrals$n, color = "redhue",
+    arrivals <- daily_arrivals()
+    calendarHeat(arrivals$arrival_day,
+                 arrivals$n, color = "redhue",
                  varname = "frailty patients arriving in ED per day")
+  })
+  
+  output$daily_admissions_plot <- renderPlot({
+    admissions <- daily_admissions()
+    calendarHeat(admissions$admission_day,
+                 admissions$n, color = "greenhue",
+                 varname = "Frailty unit admissions per day")
   })
 }

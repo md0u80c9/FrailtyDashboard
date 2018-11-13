@@ -1,4 +1,5 @@
 
+source("filter_tabs.R")
 
 admissionActivityInput <- function(id) {
   # Create a namespace function using the provided id
@@ -9,18 +10,42 @@ admissionActivityInput <- function(id) {
       column(width = 9,
         box(title = "Time of day for referrals",
           width = NULL,
+          p(glue::glue(
+            "The proportion of frailty patients arriving in the ED
+            each hour are shown in red. The proportion of patients
+            referred each hour are shown in blue. In an ideal system,
+            it would be expected that the blue line would mimic the
+            red line with a delay of a couple of hours. The purpose
+            of this chart is to identify times of peak activity.")),
           plotOutput(ns("arrival_to_referral_plot"), height = 500)
         ),
         box(title = "Day of week of arrival and referrals",
-            width = NULL,
+          width = NULL,
+          p(glue::glue(
+            "Frailty patients should present (more or less
+            uniformly across the working week: each bar would be
+            expected to be uniform. Differences in the arrivals bar
+            may represent issues in identifying frailty patients for
+            referral; differences between blue bars may indicate
+            referrals being made on a different day to the day of
+            admission.")),
             plotOutput(ns("weekday_referrals_plot"), height = 300)
         ),
         box(title = "Daily referral activity heatmap",
-            width = NULL,
-            plotOutput(ns("daily_arrivals_plot"), height = 400),
-            plotOutput(ns("daily_referrals_plot"), height = 400),
-            plotOutput(ns("daily_admissions_plot"), height = 400)
+          width = NULL,
+          p(glue::glue(
+            "The heatmaps give us an indication of changes over
+            time; and may also be useful to identify patterns of
+            activity which may help workforce planning - for
+            example around weekends, bank holidays, and 
+            seasonality.")),
+          plotOutput(ns("daily_arrivals_plot"), height = 400),
+          plotOutput(ns("daily_referrals_plot"), height = 400),
+          plotOutput(ns("daily_admissions_plot"), height = 400)
         )
+      ),
+      column(width = 3,
+        filterTabsInput(ns("filterTabs"))
       )
     )
   )
@@ -29,7 +54,7 @@ admissionActivityInput <- function(id) {
 # Module server function
 admissionActivity <- function(input, output, session, source_data) {
 
-  filtered_source_data <- dplyr::select(source_data,
+  source_data <- dplyr::select(source_data,
     "CCG",
     "mode_of_admission",
     "Date/Time of Referral",
@@ -37,10 +62,10 @@ admissionActivity <- function(input, output, session, source_data) {
     "arrival_to_referral_mins",
     "Date/Time of Admission to 1A")
   
-  filtered_source_data <- dplyr::filter(filtered_source_data,
+  source_data <- dplyr::filter(source_data,
     !is.na(.data[["Date/Time of Referral"]]))
   
-  filtered_source_data <- dplyr::mutate(filtered_source_data,
+  source_data <- dplyr::mutate(source_data,
     "referral_hour" = as.factor(
       format(.data[['Date/Time of Referral']], format = '%H')),
     "ed_arrival_hour" = as.factor(
@@ -51,8 +76,16 @@ admissionActivity <- function(input, output, session, source_data) {
       format(.data[["ed_arrival_datetime"]], format = '%u'))
   )
   
+  # This is temporary - we can get rid once we read the data from
+  # the filter tabs module
+  filtered_source_data <- source_data
+  
+  filtered_data <- callModule(filterTabs,
+                              "filterTabs",
+                              source_data)
+  
   referral_data <- reactive({
-    referral_data <- dplyr::transmute(filtered_source_data,
+    referral_data <- dplyr::transmute(filtered_data(),
       "hour" = .data[["referral_hour"]],
       "arrival_to_referral_mins" =
         .data[["arrival_to_referral_mins"]])
@@ -69,7 +102,7 @@ admissionActivity <- function(input, output, session, source_data) {
   })
 
   ed_arrival_data <- reactive({
-    ed_arrival_data <- dplyr::transmute(filtered_source_data,
+    ed_arrival_data <- dplyr::transmute(filtered_data(),
                                  "hour" = .data[["ed_arrival_hour"]])
     ed_arrival_data <- dplyr::group_by(ed_arrival_data,
                                        hour)
@@ -91,9 +124,9 @@ admissionActivity <- function(input, output, session, source_data) {
   })
   
   weekday_data <- reactive({
-    arrival_weekdays <- dplyr::transmute(filtered_source_data,
+    arrival_weekdays <- dplyr::transmute(filtered_data(),
       "weekday" = .data[["ed_arrival_weekday"]])
-    referral_weekdays <- dplyr::transmute(filtered_source_data,
+    referral_weekdays <- dplyr::transmute(filtered_data(),
       "weekday" = .data[["referral_weekday"]])
     
     arrivals <- dplyr::summarise(
@@ -123,7 +156,7 @@ admissionActivity <- function(input, output, session, source_data) {
 
   
   daily_arrivals <- reactive({
-    daily_data <- dplyr::transmute(filtered_source_data,
+    daily_data <- dplyr::transmute(filtered_data(),
                                    "arrival_day" = as.Date(.data[["ed_arrival_datetime"]]))
     daily_data <- dplyr::group_by(daily_data, arrival_day)
     daily_data <- dplyr::summarise(daily_data,
@@ -135,7 +168,7 @@ admissionActivity <- function(input, output, session, source_data) {
   
   
   daily_referrals <- reactive({
-    daily_data <- dplyr::transmute(filtered_source_data,
+    daily_data <- dplyr::transmute(filtered_data(),
       "referral_day" = as.Date(.data[['Date/Time of Referral']]))
     daily_data <- dplyr::group_by(daily_data, referral_day)
     daily_data <- dplyr::summarise(daily_data,
@@ -146,7 +179,7 @@ admissionActivity <- function(input, output, session, source_data) {
   })
   
   daily_admissions <- reactive({
-    daily_data <- dplyr::transmute(filtered_source_data,
+    daily_data <- dplyr::transmute(filtered_data(),
       "admission_day" = as.Date(.data[["Date/Time of Admission to 1A"]]))
     daily_data <- dplyr::group_by(daily_data, admission_day)
     daily_data <- dplyr::summarise(daily_data,

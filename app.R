@@ -10,6 +10,7 @@
 library(shiny)
 library(shinyBS)
 library(dplyr)
+library(purrr)
 library(ggplot2)
 library(tibbletime)
 library(shinydashboard)

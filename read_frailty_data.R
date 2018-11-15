@@ -69,6 +69,10 @@ read_frailty_data <- function(filename) {
     "arrival_to_referral_mins" =
       as.integer(difftime(.data[["Date/Time of Referral"]],
                           .data[["ed_arrival_datetime"]],
+                          units = "hours")),
+    "arrival_to_admission_mins" =
+      as.integer(difftime(.data[["Date/Time of Admission to 1A"]],
+                          .data[["ed_arrival_datetime"]],
                           units = "hours"))
   )
 }

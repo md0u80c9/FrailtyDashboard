@@ -12,6 +12,10 @@ losPageInput <- function(id) {
       column(width = 9,
           box(title = "Length of stay", width = NULL,
             plotOutput(ns("chart"), height = 550)
+          ),
+          box( width = NULL, title =
+                "Association between delayed admission and length of stay",
+              plotOutput(ns("admission_delay_on_los"), height = 550)
           )
       ),
       column(width = 3,
@@ -41,7 +45,9 @@ losPage <- function(input, output, session, source_data) {
                                         "mode_of_admission",
                                         "Date/Time of Referral",
                                         "source_of_admission",
-                                        "discharge_destination")
+                                        "discharge_destination",
+                                        "arrival_to_admission_mins",
+                                        "Hospital number")
   filtered_source_data <- dplyr::mutate(filtered_source_data,
     "year" = as.factor(format(.data[['Date/Time of Referral']],
                     format = '%Y')))
@@ -147,5 +153,18 @@ losPage <- function(input, output, session, source_data) {
       risk.table.height = 0.25, # Useful to change when you have multiple groups
       ggtheme = theme_bw()      # Change ggplot2 theme
     )
+  })
+  
+  output$admission_delay_on_los <- renderPlot({
+    ggplot(filtered_source_data, aes(x=arrival_to_admission_mins, y=LOS)) + 
+      geom_point() +
+      scale_x_continuous(breaks = seq(0, 72,
+                                      by = 6),
+                         limits = c(0, 72)) +
+      scale_y_continuous(breaks = seq(0, 21, by = 1),
+                         limits = c(0, 21)) +
+      xlab("Time from arrival to 1A admission (hours)") +
+      ylab("Length of stay (days)") +
+      geom_smooth(method=lm)
   })
 }

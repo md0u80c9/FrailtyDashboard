@@ -29,7 +29,7 @@ admissionActivityInput <- function(id) {
             referral; differences between blue bars may indicate
             referrals being made on a different day to the day of
             admission.")),
-            plotOutput(ns("weekday_referrals_plot"), height = 300)
+          plotOutput(ns("weekday_referrals_plot"), height = 300)
         ),
         box(title = "Daily referral activity heatmap",
           width = NULL,
@@ -75,15 +75,11 @@ admissionActivity <- function(input, output, session, source_data) {
     "ed_arrival_weekday" = as.factor(
       format(.data[["ed_arrival_datetime"]], format = '%u'))
   )
-  
-  # This is temporary - we can get rid once we read the data from
-  # the filter tabs module
-  filtered_source_data <- source_data
-  
+
   filtered_data <- callModule(filterTabs,
                               "filterTabs",
                               source_data)
-  
+
   referral_data <- reactive({
     referral_data <- dplyr::transmute(filtered_data(),
       "hour" = .data[["referral_hour"]],
@@ -124,6 +120,9 @@ admissionActivity <- function(input, output, session, source_data) {
   })
   
   weekday_data <- reactive({
+    if (length(filtered_data()[[1]]) == 0) {
+      return(NULL)
+    }
     arrival_weekdays <- dplyr::transmute(filtered_data(),
       "weekday" = .data[["ed_arrival_weekday"]])
     referral_weekdays <- dplyr::transmute(filtered_data(),
@@ -190,7 +189,8 @@ admissionActivity <- function(input, output, session, source_data) {
   })
   
   output$arrival_to_referral_plot <- renderPlot({
-    frequency <- ggplot2::ggplot(data = admission_data(),
+    admission <- admission_data()
+    frequency <- ggplot2::ggplot(data = admission,
                     aes(x = .data[["hour"]],
                         y = .data[["p"]],
                         group = .data[["series"]],
@@ -203,7 +203,12 @@ admissionActivity <- function(input, output, session, source_data) {
       theme_bw() +
       theme(legend.position = "top")
     
-    referral_time <- ggplot2::ggplot(data = admission_data(),
+    # Now drop the admission time series and just use the referral
+    # time series which has a median_arrival_to_referral_mins set.
+    admission <- dplyr::filter(admission,
+                               .data[["series"]] == "Referral time")
+    
+    referral_time <- ggplot2::ggplot(data = admission,
       aes(x = .data[["hour"]],
           y = .data[["median_arrival_to_referral_mins"]],
           group = .data[["series"]],
@@ -223,39 +228,58 @@ admissionActivity <- function(input, output, session, source_data) {
   })
   
   output$weekday_referrals_plot <- renderPlot({
-    ggplot2::ggplot(data = weekday_data(),
-      aes(x = .data[["weekday"]],
+    weekday <- weekday_data()
+    if (length(weekday$n) > 0) {
+      ggplot2::ggplot(data = weekday,
+        aes(x = .data[["weekday"]],
           y = .data[["n"]],
 #          group = .data[["series"]],
-          fill = .data[["series"]]
-)) +
-      geom_bar(stat = "identity", position = "identity") +
-      xlab("Day of the week") +
-      ylab("Number of patients") +
-      ggtitle("Comparison of day of week arrival versus day of week referral of frailty cohort") +
-      theme_bw() +
-      theme(legend.position = "top")
-    
+          fill = .data[["series"]])) +
+        geom_bar(stat = "identity", position = "identity") +
+        xlab("Day of the week") +
+        ylab("Number of patients") +
+        ggtitle("Comparison of day of week arrival versus day of week referral of frailty cohort") +
+        theme_bw() +
+        theme(legend.position = "top")
+    }
+    else {
+      geom_blank()
+    }
   })
   
   output$daily_referrals_plot <- renderPlot({
     referrals <- daily_referrals()
-    calendarHeat(referrals$referral_day,
+    if (length(referrals$referral_day > 0)) {
+      calendarHeat(referrals$referral_day,
                  referrals$n, color = "bluehue",
                  varname = "number of frailty referrals per day")
+    }
+    else {
+      geom_blank()
+    }
   })
   
   output$daily_arrivals_plot <- renderPlot({
     arrivals <- daily_arrivals()
-    calendarHeat(arrivals$arrival_day,
+    if (length(arrivals$arrival_day > 0)) {
+      calendarHeat(arrivals$arrival_day,
                  arrivals$n, color = "redhue",
                  varname = "frailty patients arriving in ED per day")
+    }
+    else {
+      geom_blank()
+    }
   })
   
   output$daily_admissions_plot <- renderPlot({
     admissions <- daily_admissions()
-    calendarHeat(admissions$admission_day,
+    if (length(admissions$admission_day > 0)) {
+      calendarHeat(admissions$admission_day,
                  admissions$n, color = "greenhue",
                  varname = "Frailty unit admissions per day")
+  }
+    else {
+      geom_blank()
+    }
   })
 }

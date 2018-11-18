@@ -53,17 +53,13 @@ losPage <- function(input, output, session, source_data) {
                     format = '%Y')))
                                         
   los_data <- reactive({
-#    if (input$charttype == names(charttype_fields)[1]) {
-#      los_data <- dplyr::mutate(filtered_source_data,
-#                                "chart_field" = TRUE)
-#    } else 
     {
       los_data <- dplyr::mutate(filtered_source_data,
         "chart_field" =
           !!sym(charttype_fields[[input$charttype]]))
       if (!is.null(input$lengthofstay_typefilter)) {
-        # Now filter the data so only those with a valid LOS and whose data is
-        # selected are shown
+        # Now filter the data so only those with a valid LOS and
+        # whose data is selected are shown
 
         los_data <- dplyr::filter(los_data,
           .data[["chart_field"]] %in% input$lengthofstay_typefilter)
@@ -84,8 +80,6 @@ losPage <- function(input, output, session, source_data) {
   })
 
   charttype_fields <- c(
-#    "Show all" = "",
-#    "By Year" = "referral_year",
     "By residence at admission" = "place_of_residence",
     "By discharge destination" = "discharge_destination",
     "By mode of admission" = "mode_of_admission",
@@ -156,7 +150,8 @@ losPage <- function(input, output, session, source_data) {
   })
   
   output$admission_delay_on_los <- renderPlot({
-    ggplot(filtered_source_data, aes(x=arrival_to_admission_mins, y=LOS)) + 
+    ggplot(filtered_source_data, aes(x = arrival_to_admission_mins,
+                                     y = LOS)) + 
       geom_point() +
       scale_x_continuous(breaks = seq(0, 72,
                                       by = 6),
@@ -165,6 +160,6 @@ losPage <- function(input, output, session, source_data) {
                          limits = c(0, 21)) +
       xlab("Time from arrival to 1A admission (hours)") +
       ylab("Length of stay (days)") +
-      geom_smooth(method=lm)
+      geom_smooth(method = lm)
   })
 }

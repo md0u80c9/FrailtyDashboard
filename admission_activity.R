@@ -70,10 +70,18 @@ admissionActivity <- function(input, output, session, source_data) {
       format(.data[['Date/Time of Referral']], format = '%H')),
     "ed_arrival_hour" = as.factor(
       format(.data[["ed_arrival_datetime"]], format = '%H')),
-    "referral_weekday" = as.factor(
-      format(.data[['Date/Time of Referral']], format = '%u')),
-    "ed_arrival_weekday" = as.factor(
-      format(.data[["ed_arrival_datetime"]], format = '%u'))
+    "referral_weekday" = factor(
+      format(.data[['Date/Time of Referral']], format = '%u'),
+      levels = c(1, 2, 3, 4, 5, 6, 7),
+      labels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+                 "Saturday", "Sunday"),
+      ordered = TRUE),
+    "ed_arrival_weekday" = factor(
+      format(.data[["ed_arrival_datetime"]], format = '%u'),
+      levels = c(1, 2, 3, 4, 5, 6, 7),
+      labels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+                 "Saturday", "Sunday"),
+      ordered = TRUE)
   )
 
   filtered_data <- callModule(filterTabs,
@@ -139,18 +147,7 @@ admissionActivity <- function(input, output, session, source_data) {
     # Make referrals negative so they plot below the axis
     referrals$n <- referrals$n * -1
     
-    weekdays <- dplyr::bind_rows(arrivals, referrals)
-    weekdays$weekday <- as.character(weekdays$weekday)
-    weekdays <- dplyr::filter(weekdays,
-                  !is.na(weekday))
-    weekdays$weekday <- as.factor(weekdays$weekday)
-    weekdays <- dplyr::mutate(weekdays,
-      weekday = factor(.data[["weekday"]],
-                       labels = c("Monday", "Tuesday", "Wednesday",
-                                  "Thursday", "Friday", "Saturday",
-                                  "Sunday"))
-    )
-    return(weekdays)
+    dplyr::bind_rows(arrivals, referrals)
   })
 
   
@@ -193,13 +190,13 @@ admissionActivity <- function(input, output, session, source_data) {
     frequency <- ggplot2::ggplot(data = admission,
                     aes(x = .data[["hour"]],
                         y = .data[["p"]],
-                        group = .data[["series"]],
                         colour = .data[["series"]])) +
       geom_line() +
-      xlab("Hour of the day") +
-      ylab("%age of referrals") +
       ggtitle("Presenting time of day for referrals") +
-      scale_x_continuous(breaks = seq(0, 2400, by = 300)) +
+      labs(colour = "Time series") +
+      scale_x_continuous(breaks = seq(0, 2400, by = 300),
+                         name = "Hour of the day") +
+      scale_y_continuous(name = "%age of referrals") +
       theme_bw() +
       theme(legend.position = "top")
     
@@ -212,15 +209,15 @@ admissionActivity <- function(input, output, session, source_data) {
       aes(x = .data[["hour"]],
           y = .data[["median_arrival_to_referral_mins"]],
           group = .data[["series"]],
-          colour = .data[["series"]])) +
-      geom_line() +
-      xlab("Hour of the day") +
-      ylab("Median hours from arrival to referral") +
+          fill = .data[["series"]])) +
+      geom_line(show.legend = FALSE) +
       ggtitle(glue::glue(
         "Median waiting time from arrival to referral in hours, ",
         "determined by hour of arrival")) +
-      scale_x_continuous(breaks = seq(0, 2400, by = 300)) +
-      scale_y_continuous(breaks = seq(0, 48, by = 4)) +
+      scale_x_continuous(breaks = seq(0, 2400, by = 300),
+        name = "Hour of the day") +
+      scale_y_continuous(breaks = seq(0, 48, by = 4),
+        name = "Median hours from arrival to referral") +
       theme_bw() +
       theme(legend.position = "top")
     ggpubr::ggarrange(frequency, referral_time,
@@ -233,8 +230,8 @@ admissionActivity <- function(input, output, session, source_data) {
       ggplot2::ggplot(data = weekday,
         aes(x = .data[["weekday"]],
           y = .data[["n"]],
-#          group = .data[["series"]],
           fill = .data[["series"]])) +
+        labs(fill = "Time series") +
         geom_bar(stat = "identity", position = "identity") +
         xlab("Day of the week") +
         ylab("Number of patients") +
@@ -247,39 +244,48 @@ admissionActivity <- function(input, output, session, source_data) {
     }
   })
   
-  output$daily_referrals_plot <- renderPlot({
-    referrals <- daily_referrals()
-    if (length(referrals$referral_day > 0)) {
-      calendarHeat(referrals$referral_day,
-                 referrals$n, color = "bluehue",
-                 varname = "number of frailty referrals per day")
+  calendar_heatmap <- function(days,
+                               n,
+                               colour = "bluehue",
+                               title = "") {
+    if (length(days > 0)) {
+      calendarHeat(days,
+                   n,
+                   color = colour,
+                   varname = title)
     }
     else {
       geom_blank()
     }
+  }
+  
+  output$daily_referrals_plot <- renderPlot({
+    referrals <- daily_referrals()
+    calendar_heatmap(
+      days = referrals$referral_day,
+      n = referrals$n,
+      colour = "bluehue",
+      title = "frailty referrals per day"
+    )
   })
   
   output$daily_arrivals_plot <- renderPlot({
     arrivals <- daily_arrivals()
-    if (length(arrivals$arrival_day > 0)) {
-      calendarHeat(arrivals$arrival_day,
-                 arrivals$n, color = "redhue",
-                 varname = "frailty patients arriving in ED per day")
-    }
-    else {
-      geom_blank()
-    }
+    calendar_heatmap(
+      days = arrivals$arrival_day,
+      n = arrivals$n,
+      colour = "redhue",
+      title = "frailty patients arriving in ED per day"
+    )
   })
   
   output$daily_admissions_plot <- renderPlot({
     admissions <- daily_admissions()
-    if (length(admissions$admission_day > 0)) {
-      calendarHeat(admissions$admission_day,
-                 admissions$n, color = "greenhue",
-                 varname = "Frailty unit admissions per day")
-  }
-    else {
-      geom_blank()
-    }
+    calendar_heatmap(
+      days = admissions$admission_day,
+      n = admissions$n,
+      colour = "greenhue",
+      title = "frailty unit admissions per day"
+    )
   })
 }
